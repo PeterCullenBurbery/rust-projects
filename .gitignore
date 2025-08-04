@@ -1,0 +1,38 @@
+# Ignore Cargo build artifacts in all folders
+**/target/
+
+# rustc / build by-products (in case they appear outside target)
+**/*.o
+**/*.d
+**/*.rmeta
+**/*.rlib
+
+# OS / binary artifacts (any platform, any depth)
+**/*.exe
+**/*.dll
+**/*.pdb
+**/*.so
+**/*.dylib
+**/*.a
+
+# rustfmt backups
+**/*.rs.bk
+
+# Coverage and profiling
+**/coverage/
+**/*.profraw
+**/*.profdata
+
+# IDE/editor settings (any depth)
+**/.vscode/
+**/.idea/
+**/.vs/
+**/*.swp
+**/*.swo
+
+# Logs
+**/*.log
+
+# OS cruft
+**/.DS_Store
+**/Thumbs.db
