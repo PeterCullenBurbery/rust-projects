@@ -1,0 +1,7 @@
+[package]
+name = "list_time_zones"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono-tz = "0.10.4"
