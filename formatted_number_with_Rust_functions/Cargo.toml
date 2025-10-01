@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rust-functions = "0.1.0"
+rust-functions = "0.2.1"

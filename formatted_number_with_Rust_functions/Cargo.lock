@@ -11,6 +11,6 @@ dependencies = [
 
 [[package]]
 name = "rust-functions"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7eae23102cbff357b0de57306edc454a00b8e5405ec62122a1a0afdf52eeff8a"
+checksum = "441110cda2e246976517ae26371388f3ca9a2cadc4561d5f5d6925c434e3083e"
