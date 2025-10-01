@@ -28,35 +28,10 @@ fn format_label(time: chrono::DateTime<Local>, epoch_secs: u64) -> String {
 }
 
 fn main() {
-    let duration_secs = 20; // fixed length if uninterrupted
+    let duration_secs: u64 = 20; // adjustable segment length
 
     // === Computer Name ===
     let computer_name = get().unwrap().to_string_lossy().into_owned();
-
-    // === Start Time ===
-    let start = Local::now();
-    let start_secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let start_label = format_label(start, start_secs);
-
-    // === Planned End Time ===
-    let planned_end = start + chrono::Duration::seconds(duration_secs as i64);
-    let planned_end_secs = start_secs + duration_secs as u64;
-    let planned_end_label = format_label(planned_end, planned_end_secs);
-
-    // === Initial File Path ===
-    let planned_filename = format!(
-        "C:/data/videos/{}_video_starting_at_{}_and_ending_at_{}.mp4",
-        computer_name, start_label, planned_end_label
-    );
-
-    println!("Recording desktop to: {}", planned_filename);
-    println!(
-        "Recording will stop after {} seconds or on Ctrl+C.",
-        duration_secs
-    );
 
     // === Shared state for Ctrl+C ===
     let running = Arc::new(AtomicBool::new(true));
@@ -93,66 +68,91 @@ fn main() {
         .expect("Error setting Ctrl-C handler");
     }
 
-    // === Spawn ffmpeg ===
-    let child = Command::new("ffmpeg")
-        .args(&[
-            "-y",
-            "-f",
-            "gdigrab",
-            "-framerate",
-            "30",
-            "-t",
-            &duration_secs.to_string(),
-            "-i",
-            "desktop",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            &planned_filename,
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("Failed to start ffmpeg");
+    println!(
+        "Recording in {} second segments. Press Ctrl+C to stop early.",
+        duration_secs
+    );
 
-    {
-        let mut lock = child_process.lock().unwrap();
-        *lock = Some(child);
-    }
+    // === Main loop: run segment after segment until Ctrl+C ===
+    let mut start_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
-    // === Wait until process exits or Ctrl+C pressed ===
     while running.load(Ordering::SeqCst) {
-        thread::sleep(std::time::Duration::from_millis(200));
-        let finished = {
+        let start = Local::now();
+        let start_label = format_label(start, start_secs);
+
+        // compute next boundary
+        let planned_end_secs = start_secs + duration_secs;
+        let planned_end = start + chrono::Duration::seconds(duration_secs as i64);
+        let planned_end_label = format_label(planned_end, planned_end_secs);
+
+        let planned_filename = format!(
+            "C:/data/videos/{}_video_starting_at_{}_and_ending_at_{}.mp4",
+            computer_name, start_label, planned_end_label
+        );
+
+        println!("Recording desktop to: {}", planned_filename);
+
+        // === Spawn ffmpeg for this segment ===
+        let child = Command::new("ffmpeg")
+            .args(&[
+                "-y",
+                "-f", "gdigrab",
+                "-framerate", "30",
+                "-t", &duration_secs.to_string(),
+                "-i", "desktop",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                &planned_filename,
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("Failed to start ffmpeg");
+
+        {
             let mut lock = child_process.lock().unwrap();
-            if let Some(child) = lock.as_mut() {
-                child.try_wait().unwrap().is_some()
-            } else {
-                true
+            *lock = Some(child);
+        }
+
+        // Wait until process exits or Ctrl+C pressed
+        while running.load(Ordering::SeqCst) {
+            thread::sleep(std::time::Duration::from_millis(200));
+            let finished = {
+                let mut lock = child_process.lock().unwrap();
+                if let Some(child) = lock.as_mut() {
+                    child.try_wait().unwrap().is_some()
+                } else {
+                    true
+                }
+            };
+            if finished {
+                break;
             }
-        };
-        if finished {
-            break;
         }
-    }
 
-    if let Some(mut child) = child_process.lock().unwrap().take() {
-        let _ = child.wait();
-    }
-
-    // === If stopped early, rename file with actual end timestamp ===
-    if stopped_early.load(Ordering::SeqCst) {
-        if let Some(end_label) = actual_end.lock().unwrap().clone() {
-            let new_filename = format!(
-                "C:/data/videos/{}_video_starting_at_{}_and_ending_at_{}.mp4",
-                computer_name, start_label, end_label
-            );
-            let _ = fs::rename(&planned_filename, &new_filename);
-            println!("Recording stopped early. Saved to {}", new_filename);
-            return;
+        if let Some(mut child) = child_process.lock().unwrap().take() {
+            let _ = child.wait();
         }
-    }
 
-    println!("Recording completed. Saved to {}", planned_filename);
+        // If stopped early, rename file with actual end timestamp
+        if stopped_early.load(Ordering::SeqCst) {
+            if let Some(end_label) = actual_end.lock().unwrap().clone() {
+                let new_filename = format!(
+                    "C:/data/videos/{}_video_starting_at_{}_and_ending_at_{}.mp4",
+                    computer_name, start_label, end_label
+                );
+                let _ = fs::rename(&planned_filename, &new_filename);
+                println!("Recording stopped early. Saved to {}", new_filename);
+            }
+            break; // exit loop on Ctrl+C
+        }
+
+        println!("Recording completed. Saved to {}", planned_filename);
+
+        // advance to next segment
+        start_secs = planned_end_secs;
+    }
 }
