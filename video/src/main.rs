@@ -13,7 +13,7 @@ fn format_label(time: chrono::DateTime<Local>, epoch_secs: u64) -> String {
     let ns_rem = ns % 1_000;
 
     format!(
-        "year_is_{:04}_month_is_{:03}_day_is_{:03}_hour_is_{:03}_minute_is_{:03}_second_is_{:03}_millisecond_is_{:03}_microsecond_is_{:03}_nanosecond_is_{:03}_unix_timestamp_is_{}",
+        "year_is_{:04}_month_is_{:03}_day_is_{:03}_hour_is_{:03}_minute_is_{:03}_{:03}_{:03}_{:03}_{:03}_{}",
         time.year(),
         time.month(),
         time.day(),
