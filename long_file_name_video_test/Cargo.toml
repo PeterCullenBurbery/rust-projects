@@ -1,0 +1,9 @@
+[package]
+name = "long_file_name_video_test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.42"
+ctrlc = "3.5.0"
+hostname = "0.4.1"
