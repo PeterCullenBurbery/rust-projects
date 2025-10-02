@@ -28,7 +28,7 @@ fn format_label(time: chrono::DateTime<Local>, epoch_secs: u64) -> String {
 }
 
 fn main() {
-    let duration_secs: u64 = 20; // adjustable segment length
+    let duration_secs: u64 = 1200; // adjustable segment length
 
     // === Computer Name ===
     let computer_name = get().unwrap().to_string_lossy().into_owned();
