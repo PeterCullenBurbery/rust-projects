@@ -1,4 +1,4 @@
-use chrono::{Local, Timelike, Datelike};
+use chrono::{Local, Timelike, Datelike, TimeZone};
 use hostname::get;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -48,12 +48,12 @@ fn main() {
             running.store(false, Ordering::SeqCst);
             stopped_early.store(true, Ordering::SeqCst);
 
-            // compute actual end label
-            let now = Local::now();
+            // compute actual end label (aligned with unix now)
             let now_secs = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
+            let now = Local.timestamp_opt(now_secs as i64, 0).unwrap();
             let end_label = format_label(now, now_secs);
 
             let mut lock = actual_end.lock().unwrap();
@@ -80,12 +80,13 @@ fn main() {
         .as_secs();
 
     while running.load(Ordering::SeqCst) {
-        let start = Local::now();
+        // derive labels strictly from unix-aligned seconds
+        let start = Local.timestamp_opt(start_secs as i64, 0).unwrap();
         let start_label = format_label(start, start_secs);
 
         // compute next boundary
         let planned_end_secs = start_secs + duration_secs;
-        let planned_end = start + chrono::Duration::seconds(duration_secs as i64);
+        let planned_end = Local.timestamp_opt(planned_end_secs as i64, 0).unwrap();
         let planned_end_label = format_label(planned_end, planned_end_secs);
 
         let planned_filename = format!(
