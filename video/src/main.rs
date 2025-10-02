@@ -13,7 +13,7 @@ fn format_label(time: chrono::DateTime<Local>, epoch_secs: u64) -> String {
     let ns_rem = ns % 1_000;
 
     format!(
-        "year_is_{:04}_month_is_{:03}_day_is_{:03}_hour_is_{:03}_minute_is_{:03}_{:03}_{:03}_{:03}_{:03}_{}",
+        "year_is_{:04}_month_is_{:03}_day_is_{:03}_hour_is_{:03}_minute_is_{:03}_second_is_{:03}_{:03}_{:03}_{:03}_{}",
         time.year(),
         time.month(),
         time.day(),
@@ -27,8 +27,18 @@ fn format_label(time: chrono::DateTime<Local>, epoch_secs: u64) -> String {
     )
 }
 
+// corrected boundary calculation
+fn next_boundary(start_secs: u64, d: u64) -> u64 {
+    let rem = start_secs % d;
+    if rem == 0 {
+        start_secs + d
+    } else {
+        start_secs + (d - rem)
+    }
+}
+
 fn main() {
-    let duration_secs: u64 = 1200; // adjustable segment length
+    let duration_secs: u64 = 20; // adjustable segment length
 
     // === Computer Name ===
     let computer_name = get().unwrap().to_string_lossy().into_owned();
@@ -48,12 +58,12 @@ fn main() {
             running.store(false, Ordering::SeqCst);
             stopped_early.store(true, Ordering::SeqCst);
 
-            // compute actual end label (aligned with unix now)
+            // compute actual end label
+            let now = Local::now();
             let now_secs = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            let now = Local.timestamp_opt(now_secs as i64, 0).unwrap();
             let end_label = format_label(now, now_secs);
 
             let mut lock = actual_end.lock().unwrap();
@@ -80,12 +90,11 @@ fn main() {
         .as_secs();
 
     while running.load(Ordering::SeqCst) {
-        // derive labels strictly from unix-aligned seconds
         let start = Local.timestamp_opt(start_secs as i64, 0).unwrap();
         let start_label = format_label(start, start_secs);
 
-        // compute next boundary
-        let planned_end_secs = start_secs + duration_secs;
+        // compute next aligned boundary (never zero-length)
+        let planned_end_secs = next_boundary(start_secs, duration_secs);
         let planned_end = Local.timestamp_opt(planned_end_secs as i64, 0).unwrap();
         let planned_end_label = format_label(planned_end, planned_end_secs);
 
@@ -97,12 +106,13 @@ fn main() {
         println!("Recording desktop to: {}", planned_filename);
 
         // === Spawn ffmpeg for this segment ===
+        let segment_length = planned_end_secs - start_secs;
         let child = Command::new("ffmpeg")
             .args(&[
                 "-y",
                 "-f", "gdigrab",
                 "-framerate", "30",
-                "-t", &duration_secs.to_string(),
+                "-t", &segment_length.to_string(),
                 "-i", "desktop",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
