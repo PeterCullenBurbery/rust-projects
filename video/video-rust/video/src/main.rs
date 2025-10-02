@@ -38,7 +38,7 @@ fn next_boundary(start_secs: u64, d: u64) -> u64 {
 }
 
 fn main() {
-    let duration_secs: u64 = 20; // adjustable segment length
+    let duration_secs: u64 = 1200; // adjustable segment length
 
     // === Computer Name ===
     let computer_name = get().unwrap().to_string_lossy().into_owned();
