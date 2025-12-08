@@ -2,11 +2,15 @@ use rust_functions::number_formatting::format_number;
 
 fn main() {
     // Default group size (3) when passing ""
-    println!("{}", format_number("1234567", "")); 
+    println!("{}", format_number("352844302514422", "3")); 
+    // → "001_234_567"
+
+    // Default group size (3) when passing ""
+    println!("{}", format_number("358095732514425", "3")); 
     // → "001_234_567"
 
     // Explicit group size as string
-    println!("{}", format_number("1234567", "4")); 
+    println!("{}", format_number("1234567", "4"));
     // → "0123_4567"
 
     // Explicit group size as usize
